@@ -117,8 +117,9 @@ excludes them at the `files` level because `ultracite fix` corrupts them. See
 Data access lives in `packages/db` (`@repo/db`), see its README. Rules that
 are easy to break:
 
-- Server code imports `@repo/db` / `@repo/db/notes`; anything a React component
-  needs comes from `@repo/db/shared`. The other entries pull drizzle into the
+- Only `packages/services` imports `@repo/db/notes` and the other table
+  modules; the app goes through the services (below). Anything a React
+  component needs comes from `@repo/db/shared`. The other entries pull drizzle into the
   browser bundle. One entry per module in `exports`, no barrel file.
 - Query functions take a drizzle instance, they never make one. The app passes
   `drizzle(env.DB)` from `drizzle-orm/d1`; the tests pass a `bun:sqlite` one. The
@@ -129,6 +130,30 @@ are easy to break:
   apply DB --local` (which `bun run dev` does for you) or `--remote`.
 - Local database: SQLite via Miniflare, in `apps/web/.wrangler`. No account, no
   Docker. Delete that folder for a clean slate.
+
+## Services and tRPC
+
+Business logic lives in `packages/services` (`@repo/services`), see its README.
+The app reaches it only through tRPC, mounted in Hono at `/api/trpc`. Rules
+that are easy to break:
+
+- Layers: route component -> tRPC router (`apps/web/src/server/trpc/`) ->
+  service (`@repo/services/<module>`) -> query functions (`@repo/db/<module>`).
+  Routers stay thin: input schema plus one service call. Validation and rules
+  go in the service, which takes a `Database` and never reads `env`.
+- No `createServerFn`. Route loaders and components call
+  `getTrpc()` from `#/integrations/trpc/client`. It calls the router in-process
+  during SSR and over HTTP in the browser, so it works in both.
+- Two procedure kinds in `init.ts`: `publicProcedure` for anyone,
+  `protectedProcedure` for signed-in users (narrows `ctx.userId` to a string).
+  Without auth `ctx.userId` is always null, so protected procedures answer 401
+  until the `add-clerk` skill replaces `context.ts` with a Clerk-aware one.
+- A new service goes in the context in `context.ts`, and add-clerk keeps a copy
+  of that file in `.claude/skills/add-clerk/templates/apps/web/src/server/trpc/`.
+  Change both, or running add-clerk later drops the new service.
+- Server code (`#/server/**`, drizzle, `cloudflare:workers`) must not reach the
+  browser bundle. After touching the client, `bun run build` and grep
+  `apps/web/dist/client` for `drizzle` to check.
 
 ## Starting a new project
 

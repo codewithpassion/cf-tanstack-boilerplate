@@ -7,7 +7,6 @@ import { drizzle } from "drizzle-orm/bun-sqlite";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import { createNote, listNotes } from "./notes.ts";
 import type { Database } from "./schema.ts";
-import { NOTE_TEXT_MAX_LENGTH } from "./shared.ts";
 
 // Relative to this file, not the working directory: `bun test` from the repo
 // root would otherwise look for migrations there.
@@ -22,21 +21,12 @@ beforeEach(() => {
 });
 
 describe("notes", () => {
-  test("createNote trims text and returns plain JSON", async () => {
-    const note = await createNote(db, { text: "  hello  " });
+  test("createNote stores the text and returns plain JSON", async () => {
+    const note = await createNote(db, { text: "hello" });
 
     expect(note.text).toBe("hello");
     expect(typeof note.id).toBe("string");
     expect(new Date(note.createdAt).toISOString()).toBe(note.createdAt);
-  });
-
-  test("createNote rejects empty and over-long text", async () => {
-    await expect(createNote(db, { text: "   " })).rejects.toThrow(
-      "must not be empty"
-    );
-    await expect(
-      createNote(db, { text: "x".repeat(NOTE_TEXT_MAX_LENGTH + 1) })
-    ).rejects.toThrow("at most");
   });
 
   test("listNotes returns newest first and honours the limit", async () => {

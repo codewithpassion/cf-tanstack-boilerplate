@@ -7,10 +7,10 @@ import {
 import { type ChangeEvent, type FormEvent, useCallback, useState } from "react";
 import { Button } from "#/components/ui/button";
 import { Input } from "#/components/ui/input";
-import { createNoteFn, listNotesFn } from "#/server/notes";
+import { getTrpc } from "#/integrations/trpc/client";
 
 export const Route = createFileRoute("/notes")({
-  loader: () => listNotesFn(),
+  loader: () => getTrpc().notes.list.query(),
   component: NotesPage,
   errorComponent: NotesError,
 });
@@ -33,7 +33,7 @@ function NotesPage() {
       setSaving(true);
       setError(null);
       try {
-        await createNoteFn({ data: { text } });
+        await getTrpc().notes.create.mutate({ text });
         setText("");
         await router.invalidate();
       } catch (err) {
@@ -53,9 +53,9 @@ function NotesPage() {
           Notes
         </h1>
         <p className="m-0 max-w-3xl text-base text-muted-foreground leading-8">
-          A minimal round trip: a server function reads and writes a{" "}
-          <code>notes</code> table through <code>@repo/db</code>. Add a note and
-          it lands in the D1 database bound as <code>DB</code>.
+          A minimal round trip: a tRPC procedure reads and writes a{" "}
+          <code>notes</code> table through <code>@repo/services</code>. Add a
+          note and it lands in the D1 database bound as <code>DB</code>.
         </p>
       </section>
 

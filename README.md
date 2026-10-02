@@ -11,6 +11,7 @@ There is no auth. To add it, run the `add-clerk` skill (`.claude/skills/add-cler
 ## Packages
 
 - [`packages/db`](packages/db) — `@repo/db`: the Drizzle schema for D1, the generated migrations, and the example `notes` table. See its [README](packages/db/README.md).
+- [`packages/services`](packages/services) — `@repo/services`: the service layer. Business rules and validation, on top of `@repo/db`. The web app calls it through [tRPC](https://trpc.io). See its [README](packages/services/README.md).
 
 ## Start a new project
 

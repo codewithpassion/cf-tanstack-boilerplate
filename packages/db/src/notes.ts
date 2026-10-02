@@ -1,6 +1,6 @@
 import { desc } from "drizzle-orm";
 import { type Database, notes } from "./schema.ts";
-import { NOTE_TEXT_MAX_LENGTH, type Note } from "./shared.ts";
+import type { Note } from "./shared.ts";
 
 /** How a note is stored. Only this module sees the numeric id. */
 type NoteRow = typeof notes.$inferSelect;
@@ -28,24 +28,17 @@ export async function listNotes(
   return rows.map(toNote);
 }
 
-/** Validates and stores a note. Throws on empty or over-long text. */
+/**
+ * Stores a note as given. Validation is the caller's job: go through
+ * `@repo/services/notes`, which trims and length-checks the text first.
+ */
 export async function createNote(
   db: Database,
   input: { text: string }
 ): Promise<Note> {
-  const text = input.text.trim();
-  if (text.length === 0) {
-    throw new Error("Note text must not be empty.");
-  }
-  if (text.length > NOTE_TEXT_MAX_LENGTH) {
-    throw new Error(
-      `Note text must be at most ${NOTE_TEXT_MAX_LENGTH} characters.`
-    );
-  }
-
   const [row] = await db
     .insert(notes)
-    .values({ createdAt: new Date().toISOString(), text })
+    .values({ createdAt: new Date().toISOString(), text: input.text })
     .returning();
   if (!row) {
     throw new Error("Note was inserted but could not be read back.");

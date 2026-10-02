@@ -7,7 +7,7 @@ The database layer of the monorepo: a [Drizzle](https://orm.drizzle.team) schema
 | Import | Contents | Where it may run |
 | --- | --- | --- |
 | `@repo/db` | the tables, the `Database` type | Server only: it imports drizzle |
-| `@repo/db/notes` | `listNotes`, `createNote` | Server only |
+| `@repo/db/notes` | `listNotes`, `createNote` | Server only, called by `@repo/services` |
 | `@repo/db/shared` | `Note` type, `NOTE_TEXT_MAX_LENGTH` | Anywhere, including React components |
 
 One entry per module, no barrel file: a new table gets its own `src/<name>.ts` and its own `exports` line in `package.json`. Keep the server/browser split. Importing a drizzle-backed entry from a route component pulls drizzle into the browser bundle. Anything the UI needs goes in `src/shared.ts`.
@@ -15,7 +15,9 @@ One entry per module, no barrel file: a new table gets its own `src/<name>.ts` a
 ## Using it
 
 The query functions take a drizzle instance rather than making one, so the same
-code runs against D1 on the Worker and against `bun:sqlite` in the tests:
+code runs against D1 on the Worker and against `bun:sqlite` in the tests. The
+app does not call them directly. It goes through [`@repo/services`](../services),
+which validates input first:
 
 ```ts
 import { createNote, listNotes } from "@repo/db/notes";
@@ -33,8 +35,8 @@ const note = await createNote(db, { text: "hello" });
 `src/notes.ts` is the template for new tables:
 
 - The stored row shape stays private to the module.
-- Functions return plain JSON (`Note`, with `id: string` and an ISO date). Server function results are serialized, so the row types should not leak.
-- Input is validated before it reaches the database.
+- Functions return plain JSON (`Note`, with `id: string` and an ISO date). tRPC serializes results as JSON, so the row types should not leak.
+- No validation here. The service in `@repo/services` validates input before it reaches these functions.
 - The parameter type is `Database` from `@repo/db`, which is any drizzle SQLite instance, sync or async. That is what lets the tests swap D1 for `bun:sqlite`.
 
 ## Schema and migrations

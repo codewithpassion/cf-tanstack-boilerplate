@@ -26,7 +26,7 @@ From the repo root:
 cp -r .claude/skills/add-clerk/templates/apps/web/. apps/web/
 ```
 
-That lands five files:
+That lands six files, one of them over an existing file:
 
 - `apps/web/src/integrations/clerk/provider.tsx` - `<ClerkProvider>` with an
   `appearance` config, because Clerk renders in a shadow root the app
@@ -38,8 +38,13 @@ That lands five files:
 - `apps/web/src/routes/dev-login.tsx` - redeems a dev login token.
 - `apps/web/scripts/create-dev-user.ts` - creates the dev login user through
   Clerk's Backend API.
+- `apps/web/src/server/trpc/context.ts` - replaces the no-auth version. The
+  tRPC context's `userId` now comes from the Clerk session: `getAuth(c)` for
+  calls over `/api/trpc`, `auth()` for in-process calls during SSR. That is
+  what makes `protectedProcedure` let signed-in users through.
 
-Done when all five exist.
+Done when all six exist and `git diff --stat` shows
+`apps/web/src/server/trpc/context.ts` modified.
 
 ## 2. Dependencies and scaffold metadata
 
@@ -74,8 +79,12 @@ reads:
 ```ts
 import { createClerkClient } from "@clerk/backend";
 import { clerkMiddleware, getAuth } from "@clerk/hono";
+import { trpcServer } from "@hono/trpc-server";
 import handler from "@tanstack/react-start/server-entry";
 import { Hono } from "hono";
+import { csrf } from "hono/csrf";
+import { createHonoContext } from "./server/trpc/context.ts";
+import { appRouter } from "./server/trpc/router.ts";
 ```
 
 Then replace the one-line health route
@@ -126,8 +135,11 @@ app.get("/api/dev-login", async (c) => {
 });
 ```
 
-The `app.all("*", ...)` catch-all stays last: Hono matches in order, so a route
-added after it never runs.
+Leave the `/api/trpc/*` block where it is, below these routes. The tRPC
+context calls `getAuth(c)`, which only works after `clerkMiddleware()` has run,
+and Hono runs middleware in the order it is registered. The `app.all("*", ...)`
+catch-all stays last: Hono matches in order, so a route added after it never
+runs.
 
 ## 4. Wire TanStack Start
 
@@ -325,6 +337,8 @@ Replace the `## Auth` section of the root `CLAUDE.md` with:
 Clerk. `apps/web/src/server.ts` runs `@clerk/hono`'s `clerkMiddleware()`, so
 `getAuth(c)` works in any Hono route; `src/start.ts` wires the same auth into
 TanStack Start, and `src/routes/__root.tsx` wraps the app in `<ClerkProvider>`.
+`src/server/trpc/context.ts` puts the Clerk user id in `ctx.userId`, so
+`protectedProcedure` admits signed-in users and answers 401 to everyone else.
 Set `CLERK_SECRET_KEY`, `CLERK_PUBLISHABLE_KEY` and
 `VITE_CLERK_PUBLISHABLE_KEY` on a deployed Worker with `wrangler secret put`.
 
@@ -355,9 +369,35 @@ Auth is [Clerk](https://clerk.com): `/login` signs in, the header shows the
 signed-in user.
 ```
 
+In the root `CLAUDE.md` "Services and tRPC" section, replace
+
+```markdown
+  Without auth `ctx.userId` is always null, so protected procedures answer 401
+  until the `add-clerk` skill replaces `context.ts` with a Clerk-aware one.
+```
+
+with
+
+```markdown
+  `context.ts` reads the Clerk session, so `ctx.userId` is the signed-in user
+  or null.
+```
+
+In `apps/web/README.md`, replace the sentence
+
+```markdown
+With no auth, `userId` is always null. The `add-clerk` skill swaps this file for one that reads the Clerk session.
+```
+
+with
+
+```markdown
+`userId` comes from the Clerk session: `getAuth(c)` over HTTP, `auth()` during SSR.
+```
+
 ## 13. Verify
 
-Done means all four hold:
+Done means all five hold:
 
 - `bun run check` and `bun run build` pass from the repo root.
 - `apps/web/src/routeTree.gen.ts` lists `/login` and `/dev-login`. If it does
@@ -367,12 +407,20 @@ Done means all four hold:
   lands on `/`, and the header shows the user button.
 - `curl -s localhost:3000/api/health` returns `{"status":"ok","userId":null}`
   when signed out.
+- `curl -s localhost:3000/api/trpc/me` returns a 401 `UNAUTHORIZED` when signed
+  out. Signed in with the dev login, the browser's devtools console
+  `await (await fetch("/api/trpc/me")).json()` shows the user id. Anonymous
+  procedures (`notes.list`) keep working either way.
 
 ## 14. Hand back
 
 Report the Clerk app name and id, whether the dev login is on, and the diff.
 Commit only if the user asks. Leave to the user:
 
+- Every notes procedure is still a `publicProcedure`, so anonymous visitors can
+  add notes on a deployed app. Making `notes.create` a `protectedProcedure` (in
+  `apps/web/src/server/trpc/routers/notes.ts`) is a one-word change; ask
+  whether they want it.
 - The dev instance also serves the deployed Worker. A production instance is a
   separate `clerk deploy` wizard and needs a custom domain.
 - If the Worker is already deployed, its Clerk secrets go up with the next
