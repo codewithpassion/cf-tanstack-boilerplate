@@ -130,12 +130,48 @@ are easy to break:
 - Local database: SQLite via Miniflare, in `apps/web/.wrangler`. No account, no
   Docker. Delete that folder for a clean slate.
 
+## Starting a new project
+
+A copy of this boilerplate becomes a project through `/project-init`. The user
+has to type it, because the skill sets `disable-model-invocation`. It calls
+`rename-project`, then `add-clerk` if the user wants auth, then
+`setup-cloudflare` for the D1 database and the first deploy. When a user asks
+how to start or deploy a fresh copy, point them to `/project-init` and don't
+redo its steps by hand. PR previews come afterwards, from `setup-previews`.
+README.md "Start a new project" has the steps for users.
+
+Signs a copy has not been initialised: the workspace is still named
+`boilerplate` in `package.json`, and `database_id` in `apps/web/wrangler.jsonc`
+is still `"local"`.
+
 ## Deploy
 
 Local dev needs no accounts. Deploying needs a Cloudflare account (`bunx wrangler
 login`) and a D1 database (`wrangler d1 create <name>`, its id into `d1_databases`
 in `apps/web/wrangler.jsonc`). Before the first `bun run deploy`, run `wrangler d1
 migrations apply DB --remote` once. Full steps: README.md "Deploy".
+
+## Pull request previews
+
+`.github/workflows/preview.yml` deploys every PR as a preview of the staging
+Worker (`env.staging` in `apps/web/wrangler.jsonc`) with its own D1 database,
+driven by `apps/web/scripts/preview.ts`. It skips until the `setup-previews`
+skill has created the account state. Rules that are easy to break:
+
+- Previews inherit no bindings or vars. Every binding the app reads goes in
+  `env.staging.previews` too, or it is `undefined` in previews (error 1101 on
+  the route that touches it). Adding a binding means adding it in three
+  places: top level, `env.staging`, `env.staging.previews`.
+- The previews D1 entry holds `PREVIEW_DB_*_PLACEHOLDER`. `preview.ts` patches
+  the built `dist/server/wrangler.json`, never `wrangler.jsonc`. Never commit a
+  real id there.
+- Every `wrangler preview` command takes `--env staging`. Without it, `preview
+  delete` and `preview base-config` act on production.
+- Secrets reach previews through the preview base config (`wrangler preview
+  base-config secret put <NAME> --env staging`), copied once when a preview is
+  created.
+- `bun test` in `apps/web` covers the script's pure helpers. Full runbook:
+  README.md "Pull request previews".
 
 ## Auth
 

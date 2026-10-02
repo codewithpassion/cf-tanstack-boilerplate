@@ -60,7 +60,12 @@ const appFiles = async (pattern: string) => {
 // `"database_name":`, which gets its own rewrite below.
 const nameField = new RegExp(`("name":\\s*)"${oldName}"`);
 const heading = new RegExp(`^# ${oldTitle}$`, "m");
-const databaseNameField = new RegExp(`("database_name":\\s*)"${oldName}"`);
+// Also the staging database (`<name>-staging`); preview database names are
+// derived from the Worker name at deploy time.
+const databaseNameField = new RegExp(
+  `("database_name":\\s*)"${oldName}(-staging)?"`,
+  "g"
+);
 
 const rewrites: Rewrite[] = [
   {
@@ -89,7 +94,7 @@ for (const path of await appFiles("apps/*/wrangler.jsonc")) {
   rewrites.push({
     file: path,
     find: databaseNameField,
-    to: `$1"${newName}"`,
+    to: `$1"${newName}$2"`,
     what: "D1 database name",
   });
 }

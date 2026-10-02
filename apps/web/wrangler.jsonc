@@ -14,5 +14,33 @@
       "database_id": "local",
       "migrations_dir": "../../packages/db/migrations"
     }
-  ]
+  ],
+  "env": {
+    // The Worker every pull request preview hangs off (`boilerplate-staging`).
+    // Previews never touch production. See README "Pull request previews".
+    "staging": {
+      "preview_urls": true,
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "boilerplate-staging",
+          // Filled in by the setup-previews skill.
+          "database_id": "local",
+          "migrations_dir": "../../packages/db/migrations"
+        }
+      ],
+      // A preview inherits no bindings. Each PR gets its own D1 database:
+      // apps/web/scripts/preview.ts swaps these placeholders for it after the
+      // build. Never commit a real id here.
+      "previews": {
+        "d1_databases": [
+          {
+            "binding": "DB",
+            "database_name": "PREVIEW_DB_NAME_PLACEHOLDER",
+            "database_id": "PREVIEW_DB_ID_PLACEHOLDER"
+          }
+        ]
+      }
+    }
+  }
 }
