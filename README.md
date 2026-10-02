@@ -17,26 +17,21 @@ There is no auth. To add it, run the `add-clerk` skill (`.claude/skills/add-cler
 
 You need [Bun](https://bun.sh) 1.3 or newer and [Claude Code](https://claude.com/claude-code). Deploying also needs a free [Cloudflare](https://dash.cloudflare.com/sign-up) account.
 
-1. Copy the template into a new folder and drop its git remote:
+1. Create your repo from the template and clone it. This makes a new private GitHub repo with a fresh history:
 
    ```bash
-   git clone https://github.com/claudecommunity-au/build-day-template-melb my-app
+   gh repo create my-app --template codewithpassion/cf-tanstack-boilerplate --private --clone
    cd my-app
-   git remote remove origin
    bun install
    ```
 
+   Without the `gh` CLI, press "Use this template" on the [template's GitHub page](https://github.com/codewithpassion/cf-tanstack-boilerplate) and clone the repo it creates.
+
 2. Start Claude Code in that folder and type `/project-init`. It asks for a name, renames the project to it and commits. It asks whether you want Clerk auth, then signs you in to Cloudflare, creates the D1 database, applies the migrations and does the first deploy. It asks before creating anything on your account. When it finishes you have a `https://my-app.<subdomain>.workers.dev` URL. Open `/notes` on it to check the database works.
 
-3. Commit what `/project-init` left uncommitted. That includes the D1 `database_id` in `apps/web/wrangler.jsonc`. It is not a secret, and without it a fresh clone deploys against the `"local"` placeholder.
+3. Commit what `/project-init` left uncommitted and push. That includes the D1 `database_id` in `apps/web/wrangler.jsonc`. It is not a secret, and without it a fresh clone deploys against the `"local"` placeholder.
 
-4. Put it on GitHub:
-
-   ```bash
-   gh repo create my-app --private --source . --push
-   ```
-
-5. Optional: run the `setup-previews` skill to get a preview deployment for every pull request. See [Pull request previews](#pull-request-previews).
+4. Optional: run the `setup-previews` skill to get a preview deployment for every pull request. See [Pull request previews](#pull-request-previews).
 
 After that, deploying is two commands from `apps/web`. Run the first one only when `packages/db` has a new migration:
 
