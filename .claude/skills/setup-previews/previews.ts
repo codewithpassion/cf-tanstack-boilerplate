@@ -44,13 +44,15 @@ const createToken = async (accountId: string, dryRun: boolean) => {
     },
   ]);
   const date = new Date().toISOString().slice(0, 10).replaceAll("-", "");
+  // The project name keeps tokens from different projects apart in the account.
+  const { name: project } = await file(`${root}/package.json`).json();
   const args = [
     "cf",
     "accounts",
     "tokens",
     "create",
     "--name",
-    `github-actions-worker-previews-${date}`,
+    `github-actions-${project}-previews-${date}`,
     "--policies",
     policies,
   ];
