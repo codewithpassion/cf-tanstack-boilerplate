@@ -65,10 +65,16 @@ const createToken = async (accountId: string, dryRun: boolean) => {
     console.error("cf accounts tokens create failed.");
     process.exit(1);
   }
-  const body = parseCfJson(created.stdout.toString()) as {
-    result?: { id?: string; name?: string; value?: string };
+  interface Token {
+    id?: string;
+    name?: string;
+    value?: string;
+  }
+  // Older cf versions wrap the token in `result`; 1.0.0-beta.13 returns it bare.
+  const body = parseCfJson(created.stdout.toString()) as Token & {
+    result?: Token;
   };
-  const { id: tokenId, name: tokenName, value } = body.result ?? {};
+  const { id: tokenId, name: tokenName, value } = body.result ?? body;
   // Checked before `gh secret set`, which would otherwise store an empty value.
   if (!value) {
     console.error("No token value in the cf response.");
